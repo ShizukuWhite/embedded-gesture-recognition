@@ -36,6 +36,12 @@
 
 ---
 
+## 🔬 数据采集 (Data Collection)
+
+本项目所使用的手势数据集，均由本人独立采集、清洗和标注。用于数据采集的专属固件项目已开源在另一个仓库中，欢迎访问：
+
+➡️ **[Gesture Data Collector Project](https://github.com/ShizukuWhite/gesture-data-collector)**
+
 ## 📖 AI模型迭代
 
 本项目的一个核心是AI模型的迭代优化过程，我经历了从V1到V5多个版本的演进，最终将模型从一个有严重缺陷的状态，优化到了一个高精度、高鲁棒性的最终形态。
