@@ -28,11 +28,11 @@
 
 ### 模型训练流程
 
-![模型训练流程图]<img width="704" height="866" alt="Image" src="https://github.com/user-attachments/assets/11549521-32c7-4d0b-a37c-1a6cfbfb3090" />`
+<img width="704" height="866" alt="Image" src="https://github.com/user-attachments/assets/11549521-32c7-4d0b-a37c-1a6cfbfb3090" />`
 
 ### 设备端工作流程
 
-![设备端工作流程图]<img width="665" height="811" alt="Image" src="https://github.com/user-attachments/assets/e4c2ba4c-b22d-4fa9-8962-8ac276f7b91f" />`
+<img width="665" height="811" alt="Image" src="https://github.com/user-attachments/assets/e4c2ba4c-b22d-4fa9-8962-8ac276f7b91f" />`
 
 ---
 
