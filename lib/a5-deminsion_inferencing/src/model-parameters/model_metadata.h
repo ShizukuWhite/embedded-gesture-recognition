@@ -60,8 +60,9 @@
 #define EI_CLASSIFIER_ETHOS_LINUX                13
 #define EI_CLASSIFIER_ATON                       14
 #define EI_CLASSIFIER_CEVA_NPN                   15
+#define EI_CLASSIFIER_NORDIC_AXON                16
 
-#define EI_CLASSIFIER_SENSOR_UNKNOWN             -1
+#define EI_CLASSIFIER_SENSOR_UNKNOWN             255
 #define EI_CLASSIFIER_SENSOR_MICROPHONE          1
 #define EI_CLASSIFIER_SENSOR_ACCELEROMETER       2
 #define EI_CLASSIFIER_SENSOR_CAMERA              3
@@ -69,11 +70,11 @@
 #define EI_CLASSIFIER_SENSOR_ENVIRONMENTAL       5
 #define EI_CLASSIFIER_SENSOR_FUSION              6
 
-#define EI_ANOMALY_TYPE_UNKNOWN                   0
-#define EI_ANOMALY_TYPE_KMEANS                    1
-#define EI_ANOMALY_TYPE_GMM                       2
-#define EI_ANOMALY_TYPE_VISUAL_GMM                3
-#define EI_ANOMALY_TYPE_VISUAL_PATCHCORE          4
+#define EI_ANOMALY_TYPE_UNKNOWN                  0
+#define EI_ANOMALY_TYPE_KMEANS                   1
+#define EI_ANOMALY_TYPE_GMM                      2
+#define EI_ANOMALY_TYPE_VISUAL_GMM               3
+#define EI_ANOMALY_TYPE_VISUAL_PATCHCORE         4
 
 // These must match the enum values in TensorFlow Lite's "TfLiteType"
 #define EI_CLASSIFIER_DATATYPE_FLOAT32           1
@@ -83,7 +84,7 @@
 #define EI_CLASSIFIER_PROJECT_ID                 792000
 #define EI_CLASSIFIER_PROJECT_OWNER              "ShizukuWhite"
 #define EI_CLASSIFIER_PROJECT_NAME               "5-deminsion"
-#define EI_CLASSIFIER_PROJECT_DEPLOY_VERSION     3
+#define EI_CLASSIFIER_PROJECT_DEPLOY_VERSION     15
 #define EI_CLASSIFIER_NN_INPUT_FRAME_SIZE        72
 #define EI_CLASSIFIER_RAW_SAMPLE_COUNT           24
 #define EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME      3
@@ -92,33 +93,21 @@
 #define EI_CLASSIFIER_INPUT_HEIGHT               0
 #define EI_CLASSIFIER_RESIZE_MODE                EI_CLASSIFIER_RESIZE_NONE
 #define EI_CLASSIFIER_INPUT_FRAMES               0
-#define EI_CLASSIFIER_NN_OUTPUT_COUNT            6
 #define EI_CLASSIFIER_INTERVAL_MS                20.833333333333332
-#define EI_CLASSIFIER_LABEL_COUNT                6
-#define EI_CLASSIFIER_HAS_ANOMALY                EI_ANOMALY_TYPE_UNKNOWN
-#define EI_CLASSIFIER_HAS_VISUAL_ANOMALY         0
+#define EI_CLASSIFIER_NN_OUTPUT_COUNT            5
+#define EI_CLASSIFIER_LABEL_COUNT                5
 #define EI_CLASSIFIER_SINGLE_FEATURE_INPUT       1
 #define EI_CLASSIFIER_FREQUENCY                  48
-#define EI_CLASSIFIER_HAS_MODEL_VARIABLES        1
-#define EI_CLASSIFIER_THRESHOLD                  0.6
+#define EI_CLASSIFIER_SENSOR                     EI_CLASSIFIER_SENSOR_FUSION
+#define EI_CLASSIFIER_FUSION_AXES_STRING         "accx + accy + accz"
+#define EI_CLASSIFIER_HAS_ANOMALY                EI_ANOMALY_TYPE_UNKNOWN
 
-#define EI_CLASSIFIER_OBJECT_DETECTION             0
+#define EI_CLASSIFIER_TFLITE_INPUT_DATATYPE      EI_CLASSIFIER_DATATYPE_INT8
+#define EI_CLASSIFIER_TFLITE_OUTPUT_DATATYPE     EI_CLASSIFIER_DATATYPE_INT8
+
+#define EI_CLASSIFIER_THRESHOLD                  0.6
 #define EI_CLASSIFIER_TFLITE_OUTPUT_DATA_TENSOR    0
 #define EI_CLASSIFIER_OBJECT_DETECTION_LAST_LAYER  EI_CLASSIFIER_LAST_LAYER_UNKNOWN
-
-#define EI_CLASSIFIER_TFLITE_INPUT_DATATYPE         EI_CLASSIFIER_DATATYPE_INT8
-#define EI_CLASSIFIER_TFLITE_OUTPUT_DATATYPE        EI_CLASSIFIER_DATATYPE_INT8
-
-#define EI_CLASSIFIER_TFLITE_LARGEST_ARENA_SIZE  3020
-
-#define EI_CLASSIFIER_INFERENCING_ENGINE            EI_CLASSIFIER_TFLITE
-#define EI_CLASSIFIER_COMPILED                      1
-#define EI_CLASSIFIER_HAS_TFLITE_OPS_RESOLVER       1
-
-#define EI_CLASSIFIER_QUANTIZATION_ENABLED       1
-#define EI_CLASSIFIER_LOAD_IMAGE_SCALING         0
-#define EI_CLASSIFIER_FREEFORM_OUTPUT            0
-
 
 #define EI_CLASSIFIER_HAS_FFT_INFO               1
 #define EI_CLASSIFIER_LOAD_FFT_32                0
@@ -131,26 +120,53 @@
 #define EI_CLASSIFIER_LOAD_FFT_4096              0
 #define EI_CLASSIFIER_NON_STANDARD_FFT_SIZES     0
 
-#define EI_DSP_PARAMS_GENERATED 1
+#define EI_DSP_PARAMS_GENERATED                  1
 
-#define EI_CLASSIFIER_DSP_AXES_INDEX_TYPE        uint8_t
-#define EI_CLASSIFIER_HAS_DATA_NORMALIZATION     0
+#define EI_CLASSIFIER_INFERENCING_ENGINE            EI_CLASSIFIER_TFLITE
+#define EI_CLASSIFIER_COMPILED                      1
+#define EI_CLASSIFIER_HAS_TFLITE_OPS_RESOLVER       0
+#define EI_CLASSIFIER_QUANTIZATION_ENABLED          1
+#define EI_CLASSIFIER_HAS_VISUAL_ANOMALY            0
+#define EI_CLASSIFIER_HAS_MODEL_VARIABLES           1
+#define EI_CLASSIFIER_HAS_DATA_NORMALIZATION        0
+#define EI_CLASSIFIER_CALIBRATION_ENABLED           0
+#define EI_CLASSIFIER_OBJECT_TRACKING_ENABLED       0
+#define EI_CLASSIFIER_TFLITE_LARGEST_ARENA_SIZE     5574
+#define EI_CLASSIFIER_LOAD_IMAGE_SCALING            0
+#define EI_CLASSIFIER_DSP_AXES_INDEX_TYPE           uint8_t
+#define EI_CLASSIFIER_HR_ENABLED                    0
+#define EI_CLASSIFIER_EEG_ENABLED                   0
+#define EI_CLASSIFIER_OBJECT_DETECTION              0
+#define EI_CLASSIFIER_FREEFORM_OUTPUT               0
+#define EI_CLASSIFIER_HAS_ANOMALY_KMEANS            0
+#define EI_CLASSIFIER_HAS_ANOMALY_GMM               0
+#define EI_CLASSIFIER_HAS_ANOMALY_VISUAL_GMM        0
+#define EI_CLASSIFIER_HAS_ANOMALY_VISUAL_PATCHCORE  0
+#define EI_CLASSIFIER_LOAD_ANOMALY_H                0
 
-#define EI_CLASSIFIER_SENSOR                     EI_CLASSIFIER_SENSOR_FUSION
-#define EI_CLASSIFIER_FUSION_AXES_STRING         "accx + accy + accz"
-#define EI_CLASSIFIER_CALIBRATION_ENABLED        0
-#define EI_CLASSIFIER_OBJECT_TRACKING_ENABLED    0
+#define EI_HAS_SSD                                  0
+#define EI_HAS_FOMO                                 0
+#define EI_HAS_YOLOV5                               0
+#define EI_HAS_YOLOX                                0
+#define EI_HAS_YOLOV7                               0
+#define EI_HAS_TAO_DECODE_DETECTIONS                0
+#define EI_HAS_TAO_YOLO                             0
+#define EI_HAS_TAO_YOLOV3                           0
+#define EI_HAS_TAO_YOLOV4                           0
+#define EI_HAS_YOLOV2                               0
+#define EI_HAS_YOLO_PRO                             0
+#define EI_HAS_YOLOV11                              0
+#define EI_HAS_QC_FACE_DET_LITE                     0
 
 #ifndef EI_CLASSIFIER_SLICES_PER_MODEL_WINDOW
 #define EI_CLASSIFIER_SLICES_PER_MODEL_WINDOW    4
 #endif // EI_CLASSIFIER_SLICES_PER_MODEL_WINDOW
+
 #define EI_CLASSIFIER_SLICE_SIZE                 (EI_CLASSIFIER_RAW_SAMPLE_COUNT / EI_CLASSIFIER_SLICES_PER_MODEL_WINDOW)
 
 #define EI_STUDIO_VERSION_MAJOR             1
-#define EI_STUDIO_VERSION_MINOR             75
-#define EI_STUDIO_VERSION_PATCH             5
-
-#define EI_CLASSIFIER_HR_ENABLED            0
+#define EI_STUDIO_VERSION_MINOR             78
+#define EI_STUDIO_VERSION_PATCH             1
 
 #if ((EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_TFLITE) ||      (EI_CLASSIFIER_INFERENCING_ENGINE == EI_CLASSIFIER_DRPAI)) &&      EI_CLASSIFIER_USE_FULL_TFLITE == 1
 
@@ -318,8 +334,15 @@ typedef struct {
 } ei_dsp_config_hr_t;
 
 typedef struct {
+    uint32_t block_id;
+    uint16_t implementation_version;
+    int axes;
+    float scale_axes;
+    float motion_sensitivity;
+} ei_dsp_config_eeg_t;
+
+typedef struct {
     int:0;
 } ei_post_processing_output_t;
-
 
 #endif // _EI_CLASSIFIER_MODEL_METADATA_H_

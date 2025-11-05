@@ -36,50 +36,13 @@
 #define EI_POSTPROCESSING_COMMON_H
 
 #include "model-parameters/model_metadata.h"
+#include "edge-impulse-sdk/classifier/postprocessing/ei_postprocessing_types.h"
+#include "edge-impulse-sdk/classifier/postprocessing/ei_postprocessing_ai_hub.h"
 #include "edge-impulse-sdk/classifier/ei_model_types.h"
 #include "edge-impulse-sdk/classifier/ei_classifier_types.h"
 #include "edge-impulse-sdk/classifier/ei_nms.h"
 #include "edge-impulse-sdk/dsp/ei_vector.h"
 #include <string>
-
-#ifndef EI_HAS_OBJECT_DETECTION
-    #if (EI_CLASSIFIER_OBJECT_DETECTION_LAST_LAYER == EI_CLASSIFIER_LAST_LAYER_SSD)
-    #define EI_HAS_SSD 1
-    #endif
-    #if (EI_CLASSIFIER_OBJECT_DETECTION_LAST_LAYER == EI_CLASSIFIER_LAST_LAYER_FOMO)
-    #define EI_HAS_FOMO 1
-    #endif
-    #if (EI_CLASSIFIER_OBJECT_DETECTION_LAST_LAYER == EI_CLASSIFIER_LAST_LAYER_YOLOV5) || (EI_CLASSIFIER_OBJECT_DETECTION_LAST_LAYER == EI_CLASSIFIER_LAST_LAYER_YOLOV5_V5_DRPAI)
-    #define EI_HAS_YOLOV5 1
-    #endif
-    #if (EI_CLASSIFIER_OBJECT_DETECTION_LAST_LAYER == EI_CLASSIFIER_LAST_LAYER_YOLOX)
-    #define EI_HAS_YOLOX 1
-    #endif
-    #if (EI_CLASSIFIER_OBJECT_DETECTION_LAST_LAYER == EI_CLASSIFIER_LAST_LAYER_YOLOV7)
-    #define EI_HAS_YOLOV7 1
-    #endif
-    #if (EI_CLASSIFIER_OBJECT_DETECTION_LAST_LAYER == EI_CLASSIFIER_LAST_LAYER_TAO_RETINANET) || (EI_CLASSIFIER_OBJECT_DETECTION_LAST_LAYER == EI_CLASSIFIER_LAST_LAYER_TAO_SSD)
-    #define EI_HAS_TAO_DECODE_DETECTIONS 1
-    #endif
-    #if (EI_CLASSIFIER_OBJECT_DETECTION_LAST_LAYER == EI_CLASSIFIER_LAST_LAYER_TAO_YOLOV3) || (EI_CLASSIFIER_OBJECT_DETECTION_LAST_LAYER == EI_CLASSIFIER_LAST_LAYER_TAO_YOLOV4)
-    #define EI_HAS_TAO_YOLO 1
-    #endif
-    #if (EI_CLASSIFIER_OBJECT_DETECTION_LAST_LAYER == EI_CLASSIFIER_LAST_LAYER_TAO_YOLOV3)
-    #define EI_HAS_TAO_YOLOV3 1
-    #endif
-    #if (EI_CLASSIFIER_OBJECT_DETECTION_LAST_LAYER == EI_CLASSIFIER_LAST_LAYER_TAO_YOLOV4)
-    #define EI_HAS_TAO_YOLOV4 1
-    #endif
-    #if (EI_CLASSIFIER_OBJECT_DETECTION_LAST_LAYER == EI_CLASSIFIER_LAST_LAYER_YOLOV2)
-    #define EI_HAS_YOLOV2 1
-    #endif
-    #if (EI_CLASSIFIER_OBJECT_DETECTION_LAST_LAYER == EI_CLASSIFIER_LAST_LAYER_YOLO_PRO)
-    #define EI_HAS_YOLO_PRO 1
-    #endif
-    #if (EI_CLASSIFIER_OBJECT_DETECTION_LAST_LAYER == EI_CLASSIFIER_LAST_LAYER_YOLOV11) || (EI_CLASSIFIER_OBJECT_DETECTION_LAST_LAYER == EI_CLASSIFIER_LAST_LAYER_YOLOV11_ABS)
-    #define EI_HAS_YOLOV11 1
-    #endif
-#endif
 
 int16_t get_block_number(ei_impulse_handle_t *handle, void *init_func)
 {
@@ -90,64 +53,6 @@ int16_t get_block_number(ei_impulse_handle_t *handle, void *init_func)
     }
     return -1;
 }
-
-typedef struct cube {
-    uint32_t x;
-    uint32_t y;
-    uint32_t width;
-    uint32_t height;
-    float confidence;
-    const char *label;
-} ei_classifier_cube_t;
-
-typedef struct {
-    float threshold;
-} ei_fill_result_object_detection_threshold_config_t;
-
-typedef struct {
-    float threshold;
-    uint8_t version;
-    uint32_t object_detection_count;
-    uint32_t output_features_count;
-    ei_object_detection_nms_config_t nms_config;
-} ei_fill_result_object_detection_f32_config_t;
-
-typedef struct {
-    float threshold;
-    uint8_t version;
-    uint32_t object_detection_count;
-    uint32_t output_features_count;
-    float zero_point;
-    float scale;
-    ei_object_detection_nms_config_t nms_config;
-} ei_fill_result_object_detection_i8_config_t;
-
-typedef struct {
-    float zero_point;
-    float scale;
-} ei_fill_result_classification_i8_config_t;
-
-typedef struct {
-    float threshold;
-    uint16_t out_width;
-    uint16_t out_height;
-    uint32_t object_detection_count;
-} ei_fill_result_fomo_f32_config_t;
-
-typedef struct {
-    float threshold;
-    uint16_t out_width;
-    uint16_t out_height;
-    uint32_t object_detection_count;
-    float zero_point;
-    float scale;
-} ei_fill_result_fomo_i8_config_t;
-
-typedef struct {
-    float threshold;
-    uint16_t grid_size_x;
-    uint16_t grid_size_y;
-} ei_fill_result_visual_ad_f32_config_t;
 
 /**
  * Checks whether a new section overlaps with a cube,
@@ -345,12 +250,9 @@ __attribute__((unused)) static EI_IMPULSE_ERROR process_classification_i8(ei_imp
         ei_printf_float(value);
         ei_printf("\n");
 #endif
-
         result->classification[ix].label = impulse->categories[ix];
         result->classification[ix].value = value;
     }
-
-
 
     return EI_IMPULSE_OK;
 }
@@ -538,7 +440,7 @@ __attribute__((unused)) static EI_IMPULSE_ERROR process_fomo_f32(ei_impulse_hand
                                                                     ei_impulse_result_t *result,
                                                                     void *config_ptr,
                                                                     void *state) {
-#ifdef EI_HAS_FOMO
+#if EI_HAS_FOMO
     const ei_impulse_t *impulse = handle->impulse;
     const ei_fill_result_fomo_f32_config_t *config = (ei_fill_result_fomo_f32_config_t*)config_ptr;
 
@@ -556,7 +458,7 @@ __attribute__((unused)) static EI_IMPULSE_ERROR process_fomo_f32(ei_impulse_hand
         for (size_t x = 0; x < config->out_height; x++) {
             size_t loc = ((y * config->out_height) + x) * (impulse->label_count + 1);
 
-            for (size_t ix = 1; ix < impulse->label_count + 1; ix++) {
+            for (size_t ix = 1; ix < (size_t)impulse->label_count + 1; ix++) {
                 float vf = raw_output_mtx->buffer[loc+ix];
 
                 ei_handle_cube(&cubes, x, y, vf, impulse->categories[ix - 1], config->threshold);
@@ -578,7 +480,7 @@ __attribute__((unused)) static EI_IMPULSE_ERROR process_fomo_i8(ei_impulse_handl
                                                                     ei_impulse_result_t *result,
                                                                     void *config_ptr,
                                                                     void *state) {
-#ifdef EI_HAS_FOMO
+#if EI_HAS_FOMO
     const ei_impulse_t *impulse = handle->impulse;
     const ei_fill_result_fomo_i8_config_t *config = (ei_fill_result_fomo_i8_config_t*)config_ptr;
 
@@ -596,7 +498,7 @@ __attribute__((unused)) static EI_IMPULSE_ERROR process_fomo_i8(ei_impulse_handl
         for (size_t x = 0; x < config->out_height; x++) {
             size_t loc = ((y * config->out_height) + x) * (impulse->label_count + 1);
 
-            for (size_t ix = 1; ix < impulse->label_count + 1; ix++) {
+            for (size_t ix = 1; ix < (size_t)impulse->label_count + 1; ix++) {
                 int8_t v = raw_output_mtx->buffer[loc+ix];
                 float vf = static_cast<float>(v - config->zero_point) * config->scale;
 
@@ -684,7 +586,7 @@ __attribute__((unused)) static EI_IMPULSE_ERROR process_ssd_f32(ei_impulse_handl
                                                                              ei_impulse_result_t *result,
                                                                              void *config_ptr,
                                                                              void *state) {
-#ifdef EI_HAS_SSD
+#if EI_HAS_SSD
     const ei_impulse_t *impulse = handle->impulse;
     const ei_fill_result_object_detection_f32_config_t *config = (ei_fill_result_object_detection_f32_config_t*)config_ptr;
 
@@ -750,7 +652,7 @@ __attribute__((unused)) static EI_IMPULSE_ERROR process_yolov5_f32(ei_impulse_ha
                                                                     ei_impulse_result_t *result,
                                                                     void *config_ptr,
                                                                     void *state) {
-#ifdef EI_HAS_YOLOV5
+#if EI_HAS_YOLOV5
     const ei_impulse_t *impulse = handle->impulse;
     const ei_fill_result_object_detection_f32_config_t *config = (ei_fill_result_object_detection_f32_config_t*)config_ptr;
 
@@ -853,7 +755,7 @@ __attribute__((unused)) static EI_IMPULSE_ERROR process_yolov5_i8(ei_impulse_han
                                                                     ei_impulse_result_t *result,
                                                                     void *config_ptr,
                                                                     void *state) {
-#ifdef EI_HAS_YOLOV5
+#if EI_HAS_YOLOV5
     const ei_impulse_t *impulse = handle->impulse;
     const ei_fill_result_object_detection_i8_config_t *config = (ei_fill_result_object_detection_i8_config_t*)config_ptr;
 
@@ -957,7 +859,7 @@ __attribute__((unused)) static EI_IMPULSE_ERROR process_yolox_f32(ei_impulse_han
                                                                              ei_impulse_result_t *result,
                                                                              void *config_ptr,
                                                                              void *state) {
-#ifdef EI_HAS_YOLOX
+#if EI_HAS_YOLOX
     const ei_impulse_t *impulse = handle->impulse;
     const ei_fill_result_object_detection_f32_config_t *config = (ei_fill_result_object_detection_f32_config_t*)config_ptr;
 
@@ -1172,7 +1074,7 @@ __attribute__((unused)) static EI_IMPULSE_ERROR process_yolox_detect_f32(ei_impu
                                                                              ei_impulse_result_t *result,
                                                                              void *config_ptr,
                                                                              void *state) {
-#ifdef EI_HAS_YOLOX
+#if EI_HAS_YOLOX
     const ei_impulse_t *impulse = handle->impulse;
     const ei_fill_result_object_detection_f32_config_t *config = (ei_fill_result_object_detection_f32_config_t*)config_ptr;
 
@@ -1248,7 +1150,7 @@ __attribute__((unused)) static EI_IMPULSE_ERROR process_yolov7_f32(ei_impulse_ha
                                                                              ei_impulse_result_t *result,
                                                                              void *config_ptr,
                                                                              void *state) {
-#ifdef EI_HAS_YOLOV7
+#if EI_HAS_YOLOV7
     const ei_impulse_t *impulse = handle->impulse;
     const ei_fill_result_object_detection_f32_config_t *config = (ei_fill_result_object_detection_f32_config_t*)config_ptr;
 
@@ -1305,14 +1207,14 @@ __attribute__((unused)) static EI_IMPULSE_ERROR process_yolov7_f32(ei_impulse_ha
     return EI_IMPULSE_OK;
 #else
     return EI_IMPULSE_LAST_LAYER_NOT_AVAILABLE;
-#endif // #ifdef EI_HAS_YOLOV7
+#endif // #if EI_HAS_YOLOV7
 }
 
 __attribute__((unused)) inline float sigmoid(float a) {
     return 1.0f / (1.0f + exp(-a));
 }
 
-#ifdef EI_HAS_YOLOV2
+#if EI_HAS_YOLOV2
 // based on akida_models-1.2.0/detection/processing.py
 // input is "2D" array with shape [grid_h * grid_w * nb_box, nb_classes]
 __attribute__((unused)) static void softmax(std::vector<float>& input, const size_t nb_classes)
@@ -1404,7 +1306,7 @@ __attribute__((unused)) static EI_IMPULSE_ERROR process_yolov2_f32(ei_impulse_ha
                                                                              ei_impulse_result_t *result,
                                                                              void *config_ptr,
                                                                              void *state) {
-#ifdef EI_HAS_YOLOV2
+#if EI_HAS_YOLOV2
     const ei_impulse_t *impulse = handle->impulse;
     const ei_fill_result_object_detection_f32_config_t *config = (ei_fill_result_object_detection_f32_config_t*)config_ptr;
 
@@ -1572,44 +1474,10 @@ __attribute__((unused)) static EI_IMPULSE_ERROR process_yolov2_f32(ei_impulse_ha
     return EI_IMPULSE_OK;
 #else
     return EI_IMPULSE_LAST_LAYER_NOT_AVAILABLE;
-#endif // #ifdef EI_HAS_YOLOV2
+#endif // #if EI_HAS_YOLOV2
 }
 
-#if (EI_HAS_TAO_DECODE_DETECTIONS == 1) || (EI_HAS_TAO_YOLO == 1) || (EI_HAS_YOLO_PRO == 1) || (EI_HAS_YOLOV11 == 1)
-
-__attribute__((unused)) static void prepare_nms_results_common(size_t object_detection_count,
-                                                               ei_impulse_result_t *result,
-                                                               std::vector<ei_impulse_result_bounding_box_t> *results) {
-    #define EI_CLASSIFIER_OBJECT_DETECTION_KEEP_TOPK 200
-
-    // if we didn't detect min required objects, fill the rest with fixed value
-    size_t added_boxes_count = results->size();
-    if (added_boxes_count < object_detection_count) {
-        results->resize(object_detection_count);
-        for (size_t ix = added_boxes_count; ix < object_detection_count; ix++) {
-            (*results)[ix].value = 0.0f;
-        }
-    }
-
-    // we sort in reverse order across all classes,
-    // since results for each class are pushed to the end.
-    std::sort(results->begin(), results->end(), [ ]( const ei_impulse_result_bounding_box_t& lhs, const ei_impulse_result_bounding_box_t& rhs )
-    {
-        return lhs.value > rhs.value;
-    });
-
-    // keep topK
-    if (results->size() > EI_CLASSIFIER_OBJECT_DETECTION_KEEP_TOPK) {
-        results->erase(results->begin() + EI_CLASSIFIER_OBJECT_DETECTION_KEEP_TOPK, results->end());
-    }
-
-    result->bounding_boxes = results->data();
-    result->bounding_boxes_count = added_boxes_count;
-}
-
-#endif
-
-#ifdef EI_HAS_TAO_DECODE_DETECTIONS
+#if EI_HAS_TAO_DECODE_DETECTIONS
 template<typename T>
 __attribute__((unused)) static EI_IMPULSE_ERROR process_tao_decode_detections_common(const ei_impulse_t *impulse,
                                                                                      ei_impulse_result_t *result,
@@ -1740,9 +1608,9 @@ __attribute__((unused)) static EI_IMPULSE_ERROR process_tao_decode_detections_co
 
     return EI_IMPULSE_OK;
 }
-#endif // #ifdef EI_HAS_TAO_DETECT_DETECTIONS
+#endif // #if EI_HAS_TAO_DETECT_DETECTIONS
 
-#ifdef EI_HAS_TAO_YOLOV3
+#if EI_HAS_TAO_YOLOV3
 template<typename T>
 __attribute__((unused)) static EI_IMPULSE_ERROR  process_tao_yolov3_common(const ei_impulse_t *impulse,
                                                                                      ei_impulse_result_t *result,
@@ -1835,9 +1703,9 @@ __attribute__((unused)) static EI_IMPULSE_ERROR  process_tao_yolov3_common(const
     prepare_nms_results_common(object_detection_count, result, &results);
     return EI_IMPULSE_OK;
 }
-#endif // #ifdef EI_HAS_TAO_YOLOV3
+#endif // #if EI_HAS_TAO_YOLOV3
 
-#ifdef EI_HAS_TAO_YOLOV4
+#if EI_HAS_TAO_YOLOV4
 template<typename T>
 __attribute__((unused)) static EI_IMPULSE_ERROR process_tao_yolov4_common(const ei_impulse_t *impulse,
                                                                           ei_impulse_result_t *result,
@@ -1942,7 +1810,7 @@ __attribute__((unused)) static EI_IMPULSE_ERROR process_tao_yolov4_common(const 
     prepare_nms_results_common(object_detection_count, result, &results);
     return EI_IMPULSE_OK;
 }
-#endif // #ifdef EI_HAS_TAO_YOLOV4
+#endif // #if EI_HAS_TAO_YOLOV4
 
 __attribute__((unused)) static EI_IMPULSE_ERROR process_tao_detection_i8(ei_impulse_handle_t *handle,
                                                                          uint32_t block_index,
@@ -1950,7 +1818,7 @@ __attribute__((unused)) static EI_IMPULSE_ERROR process_tao_detection_i8(ei_impu
                                                                          ei_impulse_result_t *result,
                                                                          void *config_ptr,
                                                                          void *state) {
-#ifdef EI_HAS_TAO_DECODE_DETECTIONS
+#if EI_HAS_TAO_DECODE_DETECTIONS
     const ei_impulse_t *impulse = handle->impulse;
     const ei_fill_result_object_detection_i8_config_t *config = (ei_fill_result_object_detection_i8_config_t*)config_ptr;
 
@@ -1973,7 +1841,7 @@ __attribute__((unused)) static EI_IMPULSE_ERROR process_tao_detection_i8(ei_impu
     return res;
 #else
     return EI_IMPULSE_LAST_LAYER_NOT_AVAILABLE;
-#endif // #ifdef EI_HAS_TAO_DETECT_DETECTIONS
+#endif // #if EI_HAS_TAO_DETECT_DETECTIONS
 }
 
 __attribute__((unused)) static EI_IMPULSE_ERROR process_tao_detection_f32(ei_impulse_handle_t *handle,
@@ -1982,7 +1850,7 @@ __attribute__((unused)) static EI_IMPULSE_ERROR process_tao_detection_f32(ei_imp
                                                                              ei_impulse_result_t *result,
                                                                              void *config_ptr,
                                                                              void *state) {
-#ifdef EI_HAS_TAO_DECODE_DETECTIONS
+#if EI_HAS_TAO_DECODE_DETECTIONS
     const ei_impulse_t *impulse = handle->impulse;
     const ei_fill_result_object_detection_f32_config_t *config = (ei_fill_result_object_detection_f32_config_t*)config_ptr;
 
@@ -2004,7 +1872,7 @@ __attribute__((unused)) static EI_IMPULSE_ERROR process_tao_detection_f32(ei_imp
     return res;
 #else
     return EI_IMPULSE_LAST_LAYER_NOT_AVAILABLE;
-#endif // #ifdef EI_HAS_TAO_DETECT_DETECTIONS
+#endif // #if EI_HAS_TAO_DETECT_DETECTIONS
 }
 
 __attribute__((unused)) static EI_IMPULSE_ERROR process_tao_yolov3_f32(ei_impulse_handle_t *handle,
@@ -2013,7 +1881,7 @@ __attribute__((unused)) static EI_IMPULSE_ERROR process_tao_yolov3_f32(ei_impuls
                                                                                 ei_impulse_result_t *result,
                                                                                 void *config_ptr,
                                                                                 void *state) {
-#ifdef EI_HAS_TAO_YOLOV3
+#if EI_HAS_TAO_YOLOV3
     const ei_impulse_t *impulse = handle->impulse;
     const ei_fill_result_object_detection_f32_config_t *config = (ei_fill_result_object_detection_f32_config_t*)config_ptr;
 
@@ -2035,7 +1903,7 @@ __attribute__((unused)) static EI_IMPULSE_ERROR process_tao_yolov3_f32(ei_impuls
     return res;
 #else
     return EI_IMPULSE_LAST_LAYER_NOT_AVAILABLE;
-#endif // #ifdef EI_HAS_TAO_YOLOV3
+#endif // #if EI_HAS_TAO_YOLOV3
 }
 
 __attribute__((unused)) static EI_IMPULSE_ERROR process_tao_yolov3_i8(ei_impulse_handle_t *handle,
@@ -2044,7 +1912,7 @@ __attribute__((unused)) static EI_IMPULSE_ERROR process_tao_yolov3_i8(ei_impulse
                                                                                 ei_impulse_result_t *result,
                                                                                 void *config_ptr,
                                                                                 void *state) {
-#ifdef EI_HAS_TAO_YOLOV3
+#if EI_HAS_TAO_YOLOV3
     const ei_impulse_t *impulse = handle->impulse;
     const ei_fill_result_object_detection_i8_config_t *config = (ei_fill_result_object_detection_i8_config_t*)config_ptr;
 
@@ -2066,7 +1934,7 @@ __attribute__((unused)) static EI_IMPULSE_ERROR process_tao_yolov3_i8(ei_impulse
     return res;
 #else
     return EI_IMPULSE_LAST_LAYER_NOT_AVAILABLE;
-#endif // #ifdef EI_HAS_TAO_YOLOV3
+#endif // #if EI_HAS_TAO_YOLOV3
 }
 
 __attribute__((unused)) static EI_IMPULSE_ERROR process_tao_yolov4_f32(ei_impulse_handle_t *handle,
@@ -2075,7 +1943,7 @@ __attribute__((unused)) static EI_IMPULSE_ERROR process_tao_yolov4_f32(ei_impuls
                                                                                 ei_impulse_result_t *result,
                                                                                 void *config_ptr,
                                                                                 void *state) {
-#ifdef EI_HAS_TAO_YOLOV4
+#if EI_HAS_TAO_YOLOV4
     const ei_impulse_t *impulse = handle->impulse;
     const ei_fill_result_object_detection_f32_config_t *config = (ei_fill_result_object_detection_f32_config_t*)config_ptr;
 
@@ -2097,7 +1965,7 @@ __attribute__((unused)) static EI_IMPULSE_ERROR process_tao_yolov4_f32(ei_impuls
     return res;
 #else
     return EI_IMPULSE_LAST_LAYER_NOT_AVAILABLE;
-#endif // #ifdef EI_HAS_TAO_YOLOV4
+#endif // #if EI_HAS_TAO_YOLOV4
 }
 
 __attribute__((unused)) static EI_IMPULSE_ERROR process_tao_yolov4_i8(ei_impulse_handle_t *handle,
@@ -2106,7 +1974,7 @@ __attribute__((unused)) static EI_IMPULSE_ERROR process_tao_yolov4_i8(ei_impulse
                                                                                 ei_impulse_result_t *result,
                                                                                 void *config_ptr,
                                                                                 void *state) {
-#ifdef EI_HAS_TAO_YOLOV4
+#if EI_HAS_TAO_YOLOV4
     const ei_impulse_t *impulse = handle->impulse;
     const ei_fill_result_object_detection_i8_config_t *config = (ei_fill_result_object_detection_i8_config_t*)config_ptr;
 
@@ -2128,10 +1996,10 @@ __attribute__((unused)) static EI_IMPULSE_ERROR process_tao_yolov4_i8(ei_impulse
     return res;
 #else
     return EI_IMPULSE_LAST_LAYER_NOT_AVAILABLE;
-#endif // #ifdef EI_HAS_TAO_YOLOV4
+#endif // #if EI_HAS_TAO_YOLOV4
 }
 
-#ifdef EI_HAS_YOLO_PRO
+#if EI_HAS_YOLO_PRO
 template<typename T>
 __attribute__((unused)) static EI_IMPULSE_ERROR fill_result_struct_yolo_pro_common(const ei_impulse_t *impulse,
                                                                                     ei_impulse_result_t *result,
@@ -2231,7 +2099,7 @@ __attribute__((unused)) static EI_IMPULSE_ERROR fill_result_struct_yolo_pro_comm
     prepare_nms_results_common(object_detection_count, result, &results);
     return EI_IMPULSE_OK;
 }
-#endif // #ifdef EI_HAS_YOLO_PRO
+#endif // #if EI_HAS_YOLO_PRO
 
 __attribute__((unused)) static EI_IMPULSE_ERROR process_yolo_pro_f32(ei_impulse_handle_t *handle,
                                                                     uint32_t block_index,
@@ -2239,7 +2107,7 @@ __attribute__((unused)) static EI_IMPULSE_ERROR process_yolo_pro_f32(ei_impulse_
                                                                     ei_impulse_result_t *result,
                                                                     void *config_ptr,
                                                                     void *state) {
-#ifdef EI_HAS_YOLO_PRO
+#if EI_HAS_YOLO_PRO
     const ei_impulse_t *impulse = handle->impulse;
     const ei_fill_result_object_detection_f32_config_t *config = (ei_fill_result_object_detection_f32_config_t*)config_ptr;
 
@@ -2260,7 +2128,7 @@ __attribute__((unused)) static EI_IMPULSE_ERROR process_yolo_pro_f32(ei_impulse_
     return res;
 #else
     return EI_IMPULSE_LAST_LAYER_NOT_AVAILABLE;
-#endif // #ifdef EI_HAS_YOLO_PRO
+#endif // #if EI_HAS_YOLO_PRO
 }
 
 __attribute__((unused)) static EI_IMPULSE_ERROR process_yolo_pro_i8(ei_impulse_handle_t *handle,
@@ -2269,7 +2137,7 @@ __attribute__((unused)) static EI_IMPULSE_ERROR process_yolo_pro_i8(ei_impulse_h
                                                                     ei_impulse_result_t *result,
                                                                     void *config_ptr,
                                                                     void *state) {
-#ifdef EI_HAS_YOLO_PRO
+#if EI_HAS_YOLO_PRO
     const ei_impulse_t *impulse = handle->impulse;
     const ei_fill_result_object_detection_i8_config_t *config = (ei_fill_result_object_detection_i8_config_t*)config_ptr;
 
@@ -2291,10 +2159,10 @@ __attribute__((unused)) static EI_IMPULSE_ERROR process_yolo_pro_i8(ei_impulse_h
     return res;
 #else
     return EI_IMPULSE_LAST_LAYER_NOT_AVAILABLE;
-#endif // #ifdef EI_HAS_YOLO_PRO
+#endif // #if EI_HAS_YOLO_PRO
 }
 
-#ifdef EI_HAS_YOLOV11
+#if EI_HAS_YOLOV11
 
 #define EI_YOLOV11_COORD_ABSOLUTE 0
 #define EI_YOLOV11_COORD_NORMALIZED 1
@@ -2422,7 +2290,7 @@ __attribute__((unused)) static EI_IMPULSE_ERROR fill_result_struct_yolov11_commo
     prepare_nms_results_common(object_detection_count, result, &results);
     return EI_IMPULSE_OK;
 }
-#endif // #ifdef EI_HAS_YOLOV11
+#endif // #if EI_HAS_YOLOV11
 
 /**
   * Fill the result structure from an unquantized output tensor
@@ -2433,7 +2301,7 @@ __attribute__((unused)) static EI_IMPULSE_ERROR process_yolov11_f32(ei_impulse_h
                                                                     ei_impulse_result_t *result,
                                                                     void *config_ptr,
                                                                     void *state) {
-#ifdef EI_HAS_YOLOV11
+#if EI_HAS_YOLOV11
     const ei_impulse_t *impulse = handle->impulse;
     const ei_fill_result_object_detection_f32_config_t *config = (ei_fill_result_object_detection_f32_config_t*)config_ptr;
 
@@ -2455,7 +2323,7 @@ __attribute__((unused)) static EI_IMPULSE_ERROR process_yolov11_f32(ei_impulse_h
                                              config->nms_config);
 #else
     return EI_IMPULSE_LAST_LAYER_NOT_AVAILABLE;
-#endif // #ifdef EI_HAS_YOLOV11
+#endif // #if EI_HAS_YOLOV11
 }
 
 /**
@@ -2467,7 +2335,7 @@ __attribute__((unused)) static EI_IMPULSE_ERROR process_yolov11_i8(ei_impulse_ha
                                                                     ei_impulse_result_t *result,
                                                                     void *config_ptr,
                                                                     void *state) {
-#ifdef EI_HAS_YOLOV11
+#if EI_HAS_YOLOV11
     const ei_impulse_t *impulse = handle->impulse;
     const ei_fill_result_object_detection_i8_config_t *config = (ei_fill_result_object_detection_i8_config_t*)config_ptr;
 
@@ -2489,7 +2357,7 @@ __attribute__((unused)) static EI_IMPULSE_ERROR process_yolov11_i8(ei_impulse_ha
                                              config->nms_config);
 #else
     return EI_IMPULSE_LAST_LAYER_NOT_AVAILABLE;
-#endif // #ifdef EI_HAS_YOLOV11
+#endif // #if EI_HAS_YOLOV11
 }
 
 EI_IMPULSE_ERROR set_threshold_postprocessing(int16_t block_number, void* block_config, uint8_t type, float threshold) {

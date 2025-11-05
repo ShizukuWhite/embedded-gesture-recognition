@@ -28,31 +28,31 @@
  * either express or implied. See the License for the specific language governing
  * permissions, disclaimers and limitations under the License.
  */
-// Generated on: 14.10.2025 09:29:35
+// Generated on: 05.11.2025 13:44:38
 
-#ifndef tflite_learn_792000_4_GEN_H
-#define tflite_learn_792000_4_GEN_H
+#ifndef tflite_learn_792000_36_GEN_H
+#define tflite_learn_792000_36_GEN_H
 
 #include "edge-impulse-sdk/tensorflow/lite/c/common.h"
 
 // Sets up the model with init and prepare steps.
-TfLiteStatus tflite_learn_792000_4_init( void*(*alloc_fnc)(size_t,size_t) );
+TfLiteStatus tflite_learn_792000_36_init( void*(*alloc_fnc)(size_t,size_t) );
 // Returns the input tensor with the given index.
-TfLiteStatus tflite_learn_792000_4_input(int index, TfLiteTensor* tensor);
+TfLiteStatus tflite_learn_792000_36_input(int index, TfLiteTensor* tensor);
 // Returns the output tensor with the given index.
-TfLiteStatus tflite_learn_792000_4_output(int index, TfLiteTensor* tensor);
+TfLiteStatus tflite_learn_792000_36_output(int index, TfLiteTensor* tensor);
 // Runs inference for the model.
-TfLiteStatus tflite_learn_792000_4_invoke();
+TfLiteStatus tflite_learn_792000_36_invoke();
 //Frees memory allocated
-TfLiteStatus tflite_learn_792000_4_reset( void (*free)(void* ptr) );
+TfLiteStatus tflite_learn_792000_36_reset( void (*free)(void* ptr) );
 
 
 // Returns the number of input tensors.
-inline size_t tflite_learn_792000_4_inputs() {
+inline size_t tflite_learn_792000_36_inputs() {
   return 1;
 }
 // Returns the number of output tensors.
-inline size_t tflite_learn_792000_4_outputs() {
+inline size_t tflite_learn_792000_36_outputs() {
   return 1;
 }
 
