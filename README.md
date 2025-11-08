@@ -1,64 +1,73 @@
-# 基于TinyML的实时手势识别控制器
+# 基于TinyML的实时手势识别控制器（V2.0 模块化RTOS版）
 
-**一个基于Arduino Nano 33 BLE Sense的嵌入式AI项目，旨在实现一个低功耗、低延迟的实时手势识别系统，可用于智能家居、无接触控制等多种物联网(AIoT)应用场景。**
+本项目是一个基于Arduino Nano 33 BLE Sense和Edge Impulse的高性能、模块化手势识别控制器。
 
----
+此 `README.md` 描述的是 `feature/modularization` 分支下的代码架构。此分支代表了项目从“功能原型”到“专业级工程”的重大重构，实现了一个多线程、线程安全、高性能的嵌入式AI系统。
 
-## ✨ 项目亮点 (Features)
+## ✨ 核心特性
 
-* **端侧智能**: 所有AI推理完全在微控制器上独立运行，无需网络连接，实现了低延迟和高隐私性。
-* **高精度识别**: 最终模型能够准确区分 **6种** 状态 (上、下、左、右、静止、未知)，在严格的测试集上准确率高达 **99%** 以上。
-* **高鲁棒性**: 通过引入多样性数据（如不同用户的习惯）和`unknown`未知类别，有效解决了模型过拟合问题，能抵抗真实世界中的无效动作干扰。
-* **专业的开发流程**: 采用 **VS Code + PlatformIO** 进行开发，并遵循了从数据采集、云端训练、模型迭代优化到最终部署的完整机器学习工作流。
-* **低功耗设计**: 实现了基于IMU中断的“运动唤醒”功能，在设备空闲时可进入深度睡眠模式，为电池供电应用场景奠定了基础。
+* **高精度AI模型：** 基于1D CNN，在测试集上实现了 **98.5%** 的出色准确率，可精准识别`up`, `down`, `left`, `right`, `idle`等多个手势。
+* **专业模块化架构：** 代码被完全重构，解耦为**主入口 (`main.cpp`)**、**AI推理模块 (`inference_module`)** 和**LED控制模块 (`led_module`)** 三个独立单元。
+* **实时操作系统 (RTOS)：** 采用Mbed OS (`rtos.h`)，将AI推理和LED控制分配到两个独立的线程中，确保了AI计算不会阻塞用户界面的实时响应。
+* **高性能滑动窗口：** `inference_task` 实现了高频“滑动窗口”推理机制，完美解决了“离线训练”与“在线推理”的数据不一致问题，极大提升了真实设备上的识别率和响应速度。
+* **100%线程安全与封装：** 模块间的数据共享不再依赖不安全的`extern`全局变量。所有共享数据（如预测结果和互斥锁）均被`inference_module` 封装为`static`。模块间通信**完全通过公共API**（如 `inference_get_result()`）进行，从架构上杜绝了数据竞态。
+* **健壮的事件逻辑：** `led_module` 采用“消费-清除”模型，在显示一次手势结果后，会主动调用 `inference_clear_result()` 清除该事件，防止了因旧数据导致的重复触发，逻辑严谨。
 
-## 🚀 技术栈 (Technology Stack)
+## 🛠️ 硬件与软件栈
 
-* **硬件平台**: Arduino Nano 33 BLE Sense Rev2 (nRF52840)
-* **核心传感器**: 板载IMU (BMI270 加速度计)
-* **机器学习平台**: Edge Impulse Studio
-* **开发环境**: Visual Studio Code + PlatformIO
-* **核心编程语言**: C/C++
-* **软件架构**: Arduino框架, FreeRTOS (通过Mbed OS内核)
-* **版本控制**: Git / GitHub
+* **硬件平台：** Arduino Nano 33 BLE Sense (nRF52840, BMI270 IMU)
+* **AI 平台：** Edge Impulse
+* **开发环境：** Visual Studio Code + PlatformIO
+* **核心框架：** Arduino, Mbed OS (RTOS)
 
-## 🏗️ 系统架构
 
-本项目架构分为“离线模型训练”和“设备端实时推理”两个核心部分。
+## 📁 工程结构
 
-### 模型训练流程
+本项目的代码遵循PlatformIO的标准模块化规范，实现了高度的“关注点分离”。源代码与第三方库被严格隔离，业务逻辑被清晰地解耦到独立的模块中。
 
-<img width="704" height="866" alt="Image" src="https://github.com/user-attachments/assets/11549521-32c7-4d0b-a37c-1a6cfbfb3090" />`
+* `📁 include/`：存放所有模块的“公开接口” (.h)
+    * `📄 led_module.h`：[LED模块接口] 声明LED控制任务和初始化函数。
+    * `📄 inference_module.h`：[AI模块接口] 声明AI推理任务和线程安全的API。
+* `📁 lib/`：存放所有第三方库
+    * `📁 Bosch_BMI270/`：（IMU驱动库）
+    * `📁 a5-deminsion_inferencing/`：（Edge Impulse模型库）
+* `📁 src/`：存放所有模块的“具体实现” (.cpp)
+    * `🚀 main.cpp`：[项目主入口] 负责初始化、定义线程对象和启动RTOS。
+    * `💡 led_module.cpp`：[LED模块实现] 包含LED控制线程的完整逻辑，调用API获取数据。
+    * `🧠 inference_module.cpp`：[AI模块实现] 包含AI推理线程、滑动窗口和线程安全API的实现。
+* `📄 platformio.ini`：PlatformIO 项目配置文件。
 
-### 设备端工作流程
 
-<img width="665" height="811" alt="Image" src="https://github.com/user-attachments/assets/e4c2ba4c-b22d-4fa9-8962-8ac276f7b91f" />`
 
----
+## ⚙️ 工作原理解释（模块化架构）
 
-## 🔬 数据采集 (Data Collection)
+本系统的工作流程被清晰地划分为三个独立的部分：
 
-本项目所使用的手势数据集，均由本人独立采集、清洗和标注。用于数据采集的专属固件项目已开源在另一个仓库中，欢迎访问：
+1.  **`main.cpp` (指挥中心)**
+    * 作为项目入口，`main.cpp` 的职责被极大简化。
+    * 它**不包含任何业务逻辑**。
+    * 它唯一的任务就是：初始化串口，调用 `inference_module_init()` 和 `led_module_init()` 完成硬件初始化，然后启动 `inferenceThread` 和 `ledThread` 两个RTOS线程。
 
-➡️ **[Gesture Data Collector Project](https://github.com/ShizukuWhite/gesture-data-collector)**
+2.  **`inference_module` (AI大脑)**
+    * **`inference_task`** 在一个独立线程中高频运行。
+    * 它内部维护一个`static`的滑动窗口缓冲区 `g_sliding_window`。
+    * 它持续地采集少量新IMU数据，更新缓冲区，并对这个完整的窗口运行 `run_classifier()`。
+    * 所有推理结果（`g_prediction_index`, `g_confidence`）和互斥锁 `g_inference_mutex` 都被封装为`static`，**对外部完全隐藏**。
+    * 它只对外暴露 `inference_get_result()` 和 `inference_clear_result()` 两个线程安全的API，供其他模块消费数据。
 
-## 📖 AI模型迭代
+3.  **`led_module` (用户界面)**
+    * **`led_control_task`** 在另一个独立线程中以较低频率（如10Hz）运行。
+    * 它不需要知道互斥锁或AI模块的复杂实现。它只做一件事：调用 `inference_get_result()` 来获取最新的手势。
+    * 如果识别到有效手势，它会点亮对应颜色的LED，保持一段时间，然后调用 `inference_clear_result()` 来“清除”这个手势事件。
+    * 这种“消费-清除”模式 保证了手势只会被触发一次，避免了重复闪灯，逻辑非常健壮。
 
-本项目的一个核心是AI模型的迭代优化过程，我经历了从V1到V5多个版本的演进，最终将模型从一个有严重缺陷的状态，优化到了一个高精度、高鲁棒性的最终形态。
+## 🚀 如何构建
 
-* **V1.0 - 概念验证**: 成功实现了3分类模型，验证了技术路线的可行性。
-* **V2.0 - 精细化挑战**: 在升级为5分类模型后，遭遇了**严重失败** (准确率仅93.1%，但`up`/`down`混淆严重)，并成功诊断出`频谱分析`方案的局限性。
-* **V3.0 - 技术突破**: 通过更换为`Raw Data` + 1D-CNN方案，**准确率跃升至99%以上**，解决了核心的混淆问题。
-* **V4.0 - 数据完整性**: 发现并解决了因数据集不均衡（`idle`样本过长）导致的“准确率虚高”问题，得到了更**诚实可靠**的评估结果 (97.8%)。
-* **V5.0 - 追求鲁棒性**: 通过增加多样性数据（如左手、他人数据）和引入`unknown`未知类别，打造出了一个能够在真实世界中稳定工作的最终模型。
+1.  克隆这个 `feature/modularization` 分支。
+2.  确保您已经将从Edge Impulse下载的模型库（例如 `a5-deminsion_inferencing`）解压并放置在 `lib/` 文件夹中。
+3.  使用 PlatformIO Build & Upload。
 
-## 🛠️ 如何构建与运行
+## 🌟 未来展望
 
-1.  克隆本仓库。
-2.  使用 VS Code 和 PlatformIO 插件打开项目。
-3.  连接 Arduino Nano 33 BLE Sense 开发板。
-4.  点击 PlatformIO 的 "Upload" 按钮即可编译和上传。
-
-## 📜 许可证 (License)
-
-本项目采用 [MIT License](LICENSE) 开源许可证。
+* **实现低功耗设计：** 在当前专业架构的基础上，引入Bosch官方驱动库，实现真正的中断唤醒和微安级深度睡眠。
+* **添加BLE蓝牙通信：** 创建第三个RTOS线程 `ble_task`，将识别到的手势结果通过蓝牙发送出去，实现对PC（PPT控制）或手机（音乐控制）的无线遥控。
