@@ -1,6 +1,8 @@
 #ifndef INFERENCE_MODULE_H
 #define INFERENCE_MODULE_H
 
+#include <stdint.h>
+
 #include "rtos.h"
 
 // 推理模块对外接口
@@ -24,6 +26,16 @@ void inference_task();
  * @param out_confidence 输出参数：预测置信度
  */
 void inference_get_result(int* out_prediction_index, float* out_confidence);
+
+/**
+ * @brief 获取带版本号的预测结果快照，方便多个消费者判定“新数据”.
+ * @param out_prediction_index 输出预测类别索引
+ * @param out_confidence 输出预测置信度
+ * @param out_sequence 输出序列号（每次结果发生明显变化时递增）
+ */
+void inference_get_result_with_seq(int* out_prediction_index,
+                                   float* out_confidence,
+                                   uint32_t* out_sequence);
 
 /**
  * @brief 清除当前的预测结果（线程安全）

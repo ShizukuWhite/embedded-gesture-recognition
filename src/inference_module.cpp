@@ -3,6 +3,7 @@
 #include <Arduino_BMI270_BMM150.h>
 #include "rtos.h"
 #include <chrono>
+#include <cmath>
 #include "inference_module.h"
 #include "a5-deminsion_inferencing.h"
 
@@ -14,6 +15,7 @@ static rtos::Mutex g_inference_mutex;
 // 最新的预测结果
 static volatile int g_prediction_index = -1;
 static volatile float g_confidence = 0.0f;
+static volatile uint32_t g_result_sequence = 0;
 
 // 滑动窗口缓冲区
 static float g_sliding_window[EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE] = {0};
@@ -103,8 +105,14 @@ static bool run_inference(float* buffer, size_t buffer_size) {
 
     // 使用互斥锁更新共享变量
     g_inference_mutex.lock();
+    const bool changed =
+        (max_index != g_prediction_index) ||
+        (std::fabs(max_confidence - g_confidence) > 0.01f);
     g_prediction_index = max_index;
     g_confidence = max_confidence;
+    if (changed) {
+        g_result_sequence++;
+    }
     g_inference_mutex.unlock();
 
     return true;
@@ -171,10 +179,27 @@ void inference_get_result(int* out_prediction_index, float* out_confidence) {
     g_inference_mutex.unlock();
 }
 
+void inference_get_result_with_seq(int* out_prediction_index,
+                                   float* out_confidence,
+                                   uint32_t* out_sequence) {
+    g_inference_mutex.lock();
+    if (out_prediction_index) {
+        *out_prediction_index = g_prediction_index;
+    }
+    if (out_confidence) {
+        *out_confidence = g_confidence;
+    }
+    if (out_sequence) {
+        *out_sequence = g_result_sequence;
+    }
+    g_inference_mutex.unlock();
+}
+
 void inference_clear_result() {
     g_inference_mutex.lock();
     g_prediction_index = -1;
     g_confidence = 0.0f;
+    g_result_sequence++;
     g_inference_mutex.unlock();
 }
 
