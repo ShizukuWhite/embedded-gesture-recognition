@@ -42,7 +42,7 @@ void led_control_task() {
         }
         last_sequence = sequence;
 
-        if (confidence > 0.65f && prediction_index != -1) {
+        if (confidence > 0.80f && prediction_index != -1) {
             const char* prediction = inference_get_category_name(prediction_index);
             bool is_gesture = (strcmp(prediction, "idle") != 0 && strcmp(prediction, "unknown") != 0);
 
