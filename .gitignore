@@ -48,3 +48,12 @@
 # tool
 .vscode/
 .claude/
+.kiro/
+.hypothesis/
+.pytest_cache/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+pc_controller/config.json
