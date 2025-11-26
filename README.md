@@ -44,7 +44,7 @@
 graph TD
     IMU[IMU Sensor] -->|Sample 62.5Hz| INF_T[Inference Thread]
     INF_T -->|Sliding Window| MODEL[TinyML Model]
-    MODEL -->|Update Mutex| STATE[Shared State<br/>(Result + Confidence + Seq)]
+    MODEL -->|Update Mutex| STATE["Shared State<br/>(Result + Confidence + Seq)"]
     
     STATE -->|Read Mutex| BLE_T[BLE Thread]
     STATE -->|Read Mutex| LED_T[LED Thread]
