@@ -51,6 +51,7 @@ void led_control_task() {
                 else if (strcmp(prediction, "down") == 0) set_led_color(ON, ON, OFF);   // yellow
                 else if (strcmp(prediction, "right") == 0)set_led_color(ON, OFF, ON);   // purple
                 else if (strcmp(prediction, "left") == 0) set_led_color(OFF, OFF, ON);  // blue
+                else if (strcmp(prediction, "push") == 0) set_led_color(ON, ON, ON);     // white
 
                 rtos::ThisThread::sleep_for(std::chrono::milliseconds(GESTURE_LIGHT_DURATION_MS));
                 set_led_color(OFF, OFF, OFF);

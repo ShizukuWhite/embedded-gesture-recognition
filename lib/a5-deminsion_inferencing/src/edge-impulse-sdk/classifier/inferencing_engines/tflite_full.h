@@ -94,8 +94,13 @@ static EI_IMPULSE_ERROR get_interpreter(ei_learning_block_config_tflite_graph_t 
         // Create QNN Delegate options structure.
         TfLiteQnnDelegateOptions options = TfLiteQnnDelegateOptionsDefault();
 
-        // Set the mandatory backend_type option. All other options have default values.
+        // Configure QNN Delegate options to match AI Hub profiling configuration
         options.backend_type = kHtpBackend;
+        options.htp_options.performance_mode = kHtpBurst;
+        options.htp_options.precision = kHtpFp16;
+        options.htp_options.optimization_strategy = kHtpOptimizeForInference;
+        options.htp_options.useConvHmx = true;
+        options.log_level = kLogLevelWarn;
 
         // Instantiate delegate. Must not be freed until interpreter is freed.
         TfLiteDelegate* delegate = TfLiteQnnDelegateCreate(&options);
@@ -220,6 +225,8 @@ EI_IMPULSE_ERROR run_nn_inference(
         return EI_IMPULSE_INPUT_TENSOR_WAS_NULL;
     }
 
+    uint64_t ctx_start_us = ei_read_timer_us();
+
     auto input_res = fill_input_tensor_from_matrix(fmatrix,
                                                 result->_raw_outputs,
                                                 input,
@@ -231,8 +238,6 @@ EI_IMPULSE_ERROR run_nn_inference(
         return input_res;
     }
 
-    uint64_t ctx_start_us = ei_read_timer_us();
-
     TfLiteStatus status = interpreter->Invoke();
     if (status != kTfLiteOk) {
         ei_printf("ERR: interpreter->Invoke() failed with %d\n", status);
@@ -242,7 +247,6 @@ EI_IMPULSE_ERROR run_nn_inference(
     uint64_t ctx_end_us = ei_read_timer_us();
 
     result->timing.classification_us = ctx_end_us - ctx_start_us;
-    result->timing.classification = (int)(result->timing.classification_us / 1000);
 
     for (uint32_t output_ix = 0; output_ix < block_config->output_tensors_size; output_ix++) {
         TfLiteTensor* output = outputs[output_ix];

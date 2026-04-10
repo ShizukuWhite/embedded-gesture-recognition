@@ -63,6 +63,7 @@
 #define EI_CLASSIFIER_ATON                       14
 #define EI_CLASSIFIER_CEVA_NPN                   15
 #define EI_CLASSIFIER_NORDIC_AXON                16
+#define EI_CLASSIFIER_VLM_CONNECTOR              17
 
 #define EI_CLASSIFIER_SENSOR_UNKNOWN             255
 #define EI_CLASSIFIER_SENSOR_MICROPHONE          1
@@ -109,7 +110,9 @@
 #define EI_CLASSIFIER_MODE_ANOMALY_KMEANS      6
 #define EI_CLASSIFIER_MODE_DSP                 7
 #define EI_CLASSIFIER_MODE_FREEFORM            8
+#define EI_CLASSIFIER_MODE_ANOMALY_CUSTOM      9
 
+// Types of post-processing blocks
 #define EI_CLASSIFIER_TYPE_NONE                0
 #define EI_CLASSIFIER_TYPE_CLASSIFICATION      1
 #define EI_CLASSIFIER_TYPE_REGRESSION          2
@@ -251,6 +254,9 @@ typedef struct {
 typedef struct {
     uint16_t implementation_version;
     uint8_t quant_type;
+    float input_scale;
+    float input_zeropoint;
+    int8_t object_detection_last_layer;
 } ei_config_aton_graph_t;
 
 /** Configuration for the nordic_axon.h */
@@ -320,6 +326,18 @@ typedef struct {
 typedef struct {
     uint16_t implementation_version;
     uint32_t block_id;
+    const char* prompt;
+    const char** class_descriptions;
+    const char* model;
+    const char* model_download_url;
+    uint32_t max_tokens;
+    float temperature;
+    const char* server_url;
+} ei_learning_block_config_vlm_connection_t;
+
+typedef struct {
+    uint16_t implementation_version;
+    uint32_t block_id;
     const uint8_t* output_tensors_indices;
     uint8_t output_tensors_size;
     /* graph params */
@@ -353,6 +371,18 @@ typedef struct {
     float confidence_threshold;
     float iou_threshold;
 } ei_object_detection_nms_config_t;
+
+typedef struct {
+    uint32_t nn_input_frame_size;
+    uint32_t raw_sample_count;
+    uint32_t raw_samples_per_frame;
+    uint32_t dsp_input_frame_size;
+    uint32_t input_width;
+    uint32_t input_height;
+    uint32_t input_frames;
+    float interval_ms;
+    float frequency;
+} ei_input_params;
 
 typedef struct ei_impulse {
     /* project details */
@@ -472,6 +502,7 @@ public:
 #if EI_CLASSIFIER_FREEFORM_OUTPUT
         , freeform_outputs(nullptr)
 #endif //EI_CLASSIFIER_FREEFORM_OUTPUT
+        , input_params(nullptr)
         { /* ei_impulse_handle_t ctor */};
 
     ei_impulse_state_t state;
@@ -480,6 +511,7 @@ public:
 #if EI_CLASSIFIER_FREEFORM_OUTPUT == 1
     ei::matrix_t *freeform_outputs;
 #endif // EI_CLASSIFIER_FREEFORM_OUTPUT
+    ei_input_params* input_params;
 };
 
 typedef struct {

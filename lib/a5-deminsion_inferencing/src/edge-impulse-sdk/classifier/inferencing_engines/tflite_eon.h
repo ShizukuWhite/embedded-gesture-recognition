@@ -119,7 +119,6 @@ static EI_IMPULSE_ERROR inference_tflite_run(
     uint64_t ctx_end_us = ei_read_timer_us();
 
     result->timing.classification_us = ctx_end_us - ctx_start_us;
-    result->timing.classification = (int)(result->timing.classification_us / 1000);
 
     EI_LOGD("Predictions (time: %d ms.):\n", result->timing.classification);
 
@@ -292,7 +291,7 @@ EI_IMPULSE_ERROR run_nn_inference(
             }
         }
 
-        result->_raw_outputs[learn_block_index].blockId = block_config->block_id;
+        result->_raw_outputs[learn_block_index + output_ix].blockId = block_config->block_id + output_ix;
     }
 
     graph_config->model_reset(ei_aligned_free);
@@ -365,7 +364,6 @@ EI_IMPULSE_ERROR run_nn_inference_image_quantized(
     }
 
     result->timing.dsp_us = ei_read_timer_us() - dsp_start_us;
-    result->timing.dsp = (int)(result->timing.dsp_us / 1000);
 
     if (debug) {
         ei_printf("Features (%d ms.): ", result->timing.dsp);
@@ -429,7 +427,7 @@ EI_IMPULSE_ERROR run_nn_inference_image_quantized(
             }
         }
 
-        result->_raw_outputs[learn_block_index].blockId = block_config->block_id;
+        result->_raw_outputs[learn_block_index + output_ix].blockId = block_config->block_id + output_ix;
     }
 
     graph_config->model_reset(ei_aligned_free);

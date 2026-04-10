@@ -171,6 +171,8 @@ EI_IMPULSE_ERROR run_nn_inference(
         }
     }
 
+    uint64_t ctx_start_us = ei_read_timer_us();
+
     auto input_res = fill_input_tensor_from_matrix(fmatrix,
                                                    result->_raw_outputs,
                                                    input,
@@ -182,14 +184,11 @@ EI_IMPULSE_ERROR run_nn_inference(
         return input_res;
     }
 
-    uint64_t ctx_start_us = ei_read_timer_us();
-
     interpreter->Invoke();
 
     uint64_t ctx_end_us = ei_read_timer_us();
 
     result->timing.classification_us = ctx_end_us - ctx_start_us;
-    result->timing.classification = (int)(result->timing.classification_us / 1000);
 
     if (debug) {
         ei_printf("LOG_INFO tensors size: %ld \n", interpreter->tensors_size());
@@ -231,8 +230,8 @@ EI_IMPULSE_ERROR run_nn_inference(
             output_size *= outputs[output_ix]->dims->data[dim_num];
         }
 
-        result->_raw_outputs[learn_block_index].matrix = new matrix_t(1, output_size);
-        result->_raw_outputs[learn_block_index].blockId = block_config->block_id;
+        result->_raw_outputs[learn_block_index + output_ix].matrix = new matrix_t(1, output_size);
+        result->_raw_outputs[learn_block_index + output_ix].blockId = block_config->block_id + output_ix;
 
         auto output_res = fill_output_matrix_from_tensor(outputs[output_ix], result->_raw_outputs[learn_block_index + output_ix].matrix);
         if (output_res != EI_IMPULSE_OK) {

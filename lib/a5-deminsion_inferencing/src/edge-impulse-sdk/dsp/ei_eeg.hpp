@@ -34,6 +34,9 @@
 #include "edge-impulse-sdk/dsp/ei_dsp_handle.h"
 #include "edge-impulse-enterprise/eeg/eeg.hpp"
 
+// Include the generated header
+#include "model-parameters/coeffs.hpp"
+
 // Wrapper to use ei_malloc for allocation
 class eeg_wrap : public ei::eeg_processor {
 public:
@@ -70,7 +73,7 @@ public:
             matrix_t temp(eeg.win_inc_samples, eeg.num_channels);
             signal->get_data(i, floats_per_inc, temp.buffer);
             // Create a temp psd output matrix structure, but just use the output matrix buffer
-            matrix_t psd_mat(eeg.num_channels, eeg.win_size_samples / 2, output_matrix->buffer + out_idx);
+            matrix_t psd_mat(eeg.num_channels, eeg.epoch_samples / 2, output_matrix->buffer + out_idx);
             eeg.stream(&temp, psd_mat);
             out_idx += psd_mat.rows * psd_mat.cols;
         }
@@ -82,6 +85,12 @@ public:
               config->axes,
               config->scale_axes,
               config->motion_sensitivity,
+              (const float*)ei::eeg::filter_coeff,
+              (const float*)ei::eeg::filter_zi,
+              ei::eeg::num_sections,
+              (const float*)ei::eeg::tapers,
+              ei::eeg::num_tapers,
+              (size_t)(frequency * config->epoch_length),
               true)
     {
         // Any additional config setup can go here

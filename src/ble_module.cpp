@@ -45,6 +45,8 @@ bool ble_module_init() {
 void ble_task() {
     uint32_t last_published_sequence = 0;
 
+    Serial.println("[BLE] Task started, waiting for central connection...");
+
     for (;;) {
         BLEDevice central = BLE.central();
         if (central) {
@@ -72,7 +74,9 @@ void ble_task() {
                     g_predictionCharacteristic.writeValue(label);
                     g_confidenceCharacteristic.writeValue(confidence);
 
-                    Serial.print("[BLE] Published: ");
+                    Serial.print("[BLE] Published seq=");
+                    Serial.print(sequence);
+                    Serial.print(": ");
                     Serial.print(label);
                     Serial.print(" (");
                     Serial.print(confidence, 3);
