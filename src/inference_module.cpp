@@ -7,6 +7,7 @@
 #include <string.h>
 #include "inference_module.h"
 #include "a5-deminsion_inferencing.h"
+#include "MadgwickFilter.h"
 
 // ==================== 内部状态（模块私有） ====================
 
@@ -17,7 +18,8 @@ static rtos::Mutex g_inference_mutex;
 enum SystemState {
     INFERENCE_MODE,
     FORWARDING_MODE,
-    REFILLING_MODE
+    REFILLING_MODE,
+    IDLE_STATE          // 低功耗模式
 };
 static SystemState g_current_state = INFERENCE_MODE;
 
@@ -25,6 +27,8 @@ static SystemState g_current_state = INFERENCE_MODE;
 static volatile int g_prediction_index = -1;
 static volatile float g_confidence = 0.0f;
 static volatile uint32_t g_result_sequence = 0;
+static MadgwickFilter g_filter;
+static unsigned long g_last_micros = 0;
 
 // 滑动窗口缓冲区
 static float g_sliding_window[EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE] = {0};
@@ -41,6 +45,14 @@ static float g_sliding_window[EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE] = {0};
 // ==================== 冷却机制配置 ====================
 #define COOLDOWN_MS 1200        // 冷却时间：1200ms (1.2秒)
 
+// ==================== IDLE 状态配置 ====================
+#define IDLE_TRIGGER_COUNT 60          // 连续 30 次 idle 确认后进入 IDLE_STATE（约 30-40 秒）
+#define IDLE_SAMPLE_INTERVAL_MS 150    // IDLE_STATE 下的采样间隔（毫秒）
+
+// ==================== 运动检测配置 ====================
+#define MOTION_THRESHOLD_G 0.5f        // 运动检测阈值（g）- 降低以便更容易唤醒
+#define MOTION_CONFIRM_COUNT 1         // 检测到 1 次运动即唤醒
+
 // 投票缓冲区
 static int g_vote_buffer[VOTE_WINDOW_SIZE];
 static int g_vote_index = 0;
@@ -49,6 +61,14 @@ static bool g_vote_initialized = false;
 // 冷却状态
 static uint32_t g_last_confirmed_time = 0;
 static bool g_in_cooldown = false;
+
+// ==================== IDLE 状态变量 ====================
+// Idle 计数器
+static int g_idle_counter = 0;
+
+// 运动检测状态
+static float g_prev_accel_magnitude = 0.0f;
+static int g_motion_confirm_counter = 0;
 
 // ==================== 内部辅助函数 ====================
 
@@ -104,6 +124,31 @@ static void clear_vote_buffer() {
 }
 
 /**
+ * @brief 检测运动（在 IDLE_STATE 下调用）
+ * @param current_magnitude 当前加速度向量模长
+ * @return true 检测到运动（连续确认达到阈值）
+ * @return false 未检测到运动
+ */
+static bool detect_motion(float current_magnitude) {
+    float delta = fabs(current_magnitude - g_prev_accel_magnitude);
+    g_prev_accel_magnitude = current_magnitude;
+
+    if (delta > MOTION_THRESHOLD_G) {
+        g_motion_confirm_counter++;
+        ei_printf("IDLE: Motion detected (delta: %.2fg, count: %d/%d)\n",
+                  delta, g_motion_confirm_counter, MOTION_CONFIRM_COUNT);
+
+        if (g_motion_confirm_counter >= MOTION_CONFIRM_COUNT) {
+            return true;  // 确认运动
+        }
+    } else {
+        g_motion_confirm_counter = 0;  // 重置计数器
+    }
+
+    return false;
+}
+
+/**
  * @brief 多数投票机制：确认手势
  * @param new_prediction 新的预测结果索引
  * @param confidence 置信度
@@ -150,13 +195,15 @@ static int majority_vote_with_cooldown(int new_prediction, float confidence) {
     if (winner >= 0) {
         const char* label = inference_get_category_name(winner);
         
-        // idle 类别：确认但不启动冷却
+        // idle 类别：确认但不启动冷却，递增 idle 计数器
         if (strcmp(label, "idle") == 0) {
-            // idle 状态也需要更新，但不启动冷却
+            g_idle_counter++;  // 递增 idle 计数器
             return winner;
         }
         
-        // 非 idle 手势：确认并启动冷却
+        // 非 idle 手势：确认并启动冷却，重置 idle 计数器
+        g_idle_counter = 0;  // 重置 idle 计数器
+
         ei_printf("[Vote] ✓ Confirmed: %s (votes: %d/%d)\n", 
                   label, max_count, VOTE_WINDOW_SIZE);
         
@@ -221,7 +268,7 @@ static void slide_window(const float* new_data, size_t new_data_size) {
  * @return true 推理成功
  * @return false 推理失败
  */
-static bool run_inference(float* buffer, size_t buffer_size) {
+static bool run_inference(float* buffer, size_t buffer_size, int& out_index, float& out_confidence) {
     signal_t signal;
     int err = numpy::signal_from_buffer(buffer, buffer_size, &signal);
     if (err != 0) return false;
@@ -239,11 +286,9 @@ static bool run_inference(float* buffer, size_t buffer_size) {
         }
     }
 
-    g_inference_mutex.lock();
-    g_prediction_index = max_index;
-    g_confidence = max_confidence;
-    g_result_sequence++;  // 每次推理后递增序列号
-    g_inference_mutex.unlock();
+    // 只赋值给局部变量，不动全局变量和 Sequence！
+    out_index = max_index;
+    out_confidence = max_confidence;
 
     return true;
 }
@@ -280,19 +325,24 @@ void inference_task() {
             case INFERENCE_MODE: {
                 collect_new_samples(new_samples, SLIDING_WINDOW_STEP);
                 slide_window(new_samples, SLIDING_WINDOW_STEP);
-                run_inference(g_sliding_window, EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE);
+
+                // 1. 原始推理结果
+                int raw_prediction_index = -1;
+                float raw_confidence = 0.0f;
+
+                run_inference(g_sliding_window, EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE, raw_prediction_index, raw_confidence);
 
                 // 原始推理结果（用于调试）
-                const char* raw_label = (g_prediction_index >= 0) ? 
-                    ei_classifier_inferencing_categories[g_prediction_index] : "unknown";
+                const char* raw_label = (raw_prediction_index >= 0) ?
+                    ei_classifier_inferencing_categories[raw_prediction_index] : "unknown";
                 
                 // 只在非冷却期显示原始结果
                 if (!g_in_cooldown) {
-                    ei_printf("[Inference] Raw: %s (%.2f)\n", raw_label, g_confidence);
+                    ei_printf("[Inference] Raw: %s (%.2f)\n", raw_label, raw_confidence);
                 }
                 
                 // 使用多数投票+冷却机制确认手势
-                int confirmed_index = majority_vote_with_cooldown(g_prediction_index, g_confidence);
+                int confirmed_index = majority_vote_with_cooldown(raw_prediction_index, raw_confidence);
                 
                 // 只有投票确认的手势才更新全局状态
                 if (confirmed_index >= 0) {
@@ -301,6 +351,7 @@ void inference_task() {
                     // 更新全局状态
                     g_inference_mutex.lock();
                     g_prediction_index = confirmed_index;
+                    g_confidence = raw_confidence;
                     g_result_sequence++;
                     g_inference_mutex.unlock();
                     
@@ -312,23 +363,82 @@ void inference_task() {
                         g_current_state = FORWARDING_MODE;
                         ei_printf("\n>>> !!! PUSH DETECTED !!! Switching to FORWARDING_MODE <<<\n");
                     }
+                    // 检查是否达到 IDLE 触发阈值
+                    else if (g_idle_counter >= IDLE_TRIGGER_COUNT) {
+                        g_current_state = IDLE_STATE;
+                    // 在进入休眠前，先读取当前的重力模长作为基准！
+                        float ax, ay, az;
+                        if (IMU.accelerationAvailable()) {
+                            IMU.readAcceleration(ax, ay, az);
+                            g_prev_accel_magnitude = sqrt(ax*ax + ay*ay + az*az);
+                        }
+
+                        ei_printf("\n>>> Entering IDLE_STATE (low power mode). Baseline: %.2f g <<<\n", g_prev_accel_magnitude);
+                    }
                 }
-                
+
                 break;
             }
 
             case FORWARDING_MODE: {
-                float ax, ay, az, gx, gy, gz;
-                if (IMU.accelerationAvailable()&& IMU.gyroscopeAvailable()) {
+                float ax, ay, az, gx, gy, gz, mx = 0, my = 0, mz = 0;
+                bool mag_available = false;
+
+                if (IMU.accelerationAvailable() && IMU.gyroscopeAvailable()) {
                     IMU.readAcceleration(ax, ay, az);
-                    IMU.readGyroscope(gx, gy, gz);  
+                    IMU.readGyroscope(gx, gy, gz);
+
+                    // 🚀 动态探雷器：检查磁力计是否存活
+                    if (IMU.magneticFieldAvailable()) {
+                        int mag_result = IMU.readMagneticField(mx, my, mz);
+                        // 严密防线：必须读取成功，且不能是硬件死锁的 -32768.0f 错误码
+                        if (mag_result == 1 && mx != -32768.0f && my != -32768.0f) {
+                            mag_available = true;
+                        }
+                    }
+
+                    //mag_available = false;
+
                     float magnitude = sqrt(ax*ax + ay*ay + az*az);
                     
                     if (magnitude > PULL_THRESHOLD) {
                         g_current_state = REFILLING_MODE;
                         ei_printf(">>> Pull detected (Mag: %.2f)! Returning to INFERENCE_MODE <<<\n", magnitude);
+                        g_last_micros = 0; // 退出模式时重置时间戳
                     } else {
-                        ei_printf("DATA_RAW: ACC[%.2f,%.2f,%.2f] GYRO[%.2f,%.2f,%.2f]\n", ax, ay, az, gx, gy, gz);
+                        // 1. 获取精确的时间增量 (dt)
+                        unsigned long now = micros();
+                        if (g_last_micros == 0) g_last_micros = now;
+                        float dt = (now - g_last_micros) / 1000000.0f;
+                        g_last_micros = now;
+                        if (dt <= 0.0f || dt > 0.1f) dt = 0.02f;
+
+                        // 2. 动态 Beta 拦截器
+                        if (magnitude < 0.8f || magnitude > 1.2f) {
+                            g_filter.beta = 0.0f;    // 剧烈运动，纯陀螺仪
+                        } else {
+                            g_filter.beta = 0.05f;   // 静止校准
+                        }
+
+                        // 3. 修复量程与弧度转换
+                        float gx_rad = (gx) * (M_PI / 180.0f);
+                        float gy_rad = (gy) * (M_PI / 180.0f);
+                        float gz_rad = (gz) * (M_PI / 180.0f);
+
+                        gx_rad = -gx_rad;
+                        gy_rad = -gy_rad;
+                        // 4. 🚀 自适应姿态解算 (重头戏)
+                        if (mag_available) {
+                            // 如果哪天你换了新板子，这里会自动跑 9 轴满血版！
+                            g_filter.update(dt, gx_rad, gy_rad, gz_rad, ax, ay, az, mx, my, mz);
+                        } else {
+                            // 现在磁力计坏了，它会老老实实跑 6 轴保底版
+                            g_filter.updateIMU(dt, gx_rad, gy_rad, gz_rad, ax, ay, az);
+                        }
+
+                        // 5. 极致压缩发送四元数
+                        ei_printf("QUAT:%.4f,%.4f,%.4f,%.4f\n",
+                                g_filter.q0, g_filter.q1, g_filter.q2, g_filter.q3);
                     }
                 }
                 rtos::ThisThread::sleep_for(std::chrono::milliseconds(20));
@@ -338,15 +448,45 @@ void inference_task() {
             case REFILLING_MODE: {
                 ei_printf(">>> Refilling Inference Window... <<<\n");
                 collect_new_samples(g_sliding_window, EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE);
+
+                // 重置 IDLE 相关计数器
+                g_idle_counter = 0;
+                g_motion_confirm_counter = 0;
+                //g_prev_accel_magnitude = 0.0f;
+
                 g_current_state = INFERENCE_MODE;
                 ei_printf(">>> State: INFERENCE_MODE <<<\n");
+                break;
+            }
+
+            case IDLE_STATE: {
+                // 低功耗模式：降低采样频率，仅监测运动
+                float ax, ay, az;
+                if (IMU.accelerationAvailable()) {
+                    IMU.readAcceleration(ax, ay, az);
+                    float magnitude = sqrt(ax*ax + ay*ay + az*az);
+
+                    // 检测运动
+                    if (detect_motion(magnitude)) {
+                        ei_printf(">>> Exiting IDLE_STATE, waking up system <<<\n");
+
+                        // 强制更新序列号，让 LED 模块知道系统已唤醒
+                        g_inference_mutex.lock();
+                        g_result_sequence++;
+                        g_inference_mutex.unlock();
+
+                        g_current_state = REFILLING_MODE;
+                    } else {
+                        ei_printf("IDLE: monitoring motion...\n");
+                    }
+                }
+                rtos::ThisThread::sleep_for(std::chrono::milliseconds(IDLE_SAMPLE_INTERVAL_MS));
                 break;
             }
         }
         rtos::ThisThread::sleep_for(std::chrono::milliseconds(1));
     }
 }
-// ... (保留其余公共接口)
 
 
 void inference_get_result(int* out_prediction_index, float* out_confidence) {
